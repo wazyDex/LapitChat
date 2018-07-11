@@ -33,6 +33,7 @@ import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
+import com.squareup.picasso.Picasso;
 import com.theartofdev.edmodo.cropper.CropImage;
 import com.theartofdev.edmodo.cropper.CropImageView;
 
@@ -65,6 +66,7 @@ public class SettingsActivity extends AppCompatActivity {
 
 
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -91,9 +93,21 @@ public class SettingsActivity extends AppCompatActivity {
 
                 String name = dataSnapshot.child("name").getValue().toString();
                 String status = dataSnapshot.child("status").getValue().toString();
+                String image = dataSnapshot.child("image").getValue().toString();
 
                 mName.setText(name);
                 mStatus.setText(status);
+
+                if (!image.equals("default"))
+                {
+                    Picasso.with(SettingsActivity.this).load(image).into(mDisplayImage);
+
+                } else
+                    {
+                    Picasso.with(SettingsActivity.this).load(image).placeholder(R.mipmap.goldenavaatar).into(mDisplayImage);
+                }
+
+
             }
 
             @Override
@@ -155,16 +169,46 @@ public class SettingsActivity extends AppCompatActivity {
             CropImage.ActivityResult result = CropImage.getActivityResult(data);
             if (resultCode == RESULT_OK) {
 
+
+                mProgressDialog = new ProgressDialog((SettingsActivity.this));
+                mProgressDialog.setTitle("Uploading");
+                mProgressDialog.setMessage("Pleas Stand By");
+                mProgressDialog.setCanceledOnTouchOutside(false);
+                mProgressDialog.show();
+
                 Uri resultUri = result.getUri();
-                StorageReference filepath = mImageStorage.child("profile_images").child(random() + (".jpeg"));
+
+                String current_user_id = mCurrentUser.getUid();
+
+                StorageReference filepath = mImageStorage.child("profile_images").child(current_user_id + (".jpeg"));
                 filepath.putFile(resultUri).addOnCompleteListener(new OnCompleteListener<UploadTask.TaskSnapshot>() {
                     @Override
                     public void onComplete(@NonNull Task<UploadTask.TaskSnapshot> task) {
 
                         if(task.isSuccessful()){
-                            Toast.makeText(SettingsActivity.this, "Working", Toast.LENGTH_SHORT).show();
+
+
+                            String download_url = task.getResult().getStorage().getDownloadUrl().toString();
+                            // dont know if this solution will work at 6:15 video
+
+                            mUserDatabase.child("image").setValue(download_url).addOnCompleteListener(new OnCompleteListener<Void>() {
+                                @Override
+                                public void onComplete(@NonNull Task<Void> task) {
+
+                                    if (task.isSuccessful()){
+                                        mProgressDialog.dismiss();
+                                        Toast.makeText(SettingsActivity.this, "Succesful Upload", Toast.LENGTH_LONG).show();
+                                    }
+
+                                }
+                            });
+
+
+
+
                         } else {
                             Toast.makeText(SettingsActivity.this, "Error Up Loading", Toast.LENGTH_SHORT).show();
+                            mProgressDialog.dismiss();
                         }
 
                     }
@@ -176,17 +220,7 @@ public class SettingsActivity extends AppCompatActivity {
         }
     }
 
-    public static String random() {
-        Random generator = new Random();
-        StringBuilder randomStringBuilder = new StringBuilder();
-        int randomLength = generator.nextInt(10);
-        char tempChar;
-        for (int i = 0; i < randomLength; i++){
-            tempChar = (char) (generator.nextInt(96) + 32);
-            randomStringBuilder.append(tempChar);
-        }
-        return randomStringBuilder.toString();
-    }
+
 
 
 
